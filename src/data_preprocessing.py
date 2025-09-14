@@ -59,3 +59,25 @@ class Preprocessor:
         
         df['cpu_tier'] = df['cpu'].apply(extract_cpu_tier)
         return df
+    
+    def _process_gpu_features(self, df):
+        """Extracts brand from the 'gpu' column."""
+        df['gpu_brand'] = df['gpu'].apply(lambda x: x.split()[0])
+        # We keep it simple to just the brand (Intel, Nvidia, AMD).
+        # GPU series is complex and is likely to be highly correlated with CPU tier.
+        return df
+
+    def _process_memory_features(self, df):
+        """Parses the 'memory' column into separate storage types."""
+        df['memory'] = df['memory'].astype(str).replace('\.0', '', regex=True)
+        df["memory"] = df["memory"].str.replace('GB', '')
+        df["memory"] = df["memory"].str.replace('TB', '000')
+
+        ssd = df["memory"].apply(lambda x: int(re.search(r'(\d+)\s?SSD', x).group(1)) if re.search(r'(\d+)\s?SSD', x) else 0)
+        hdd = df["memory"].apply(lambda x: int(re.search(r'(\d+)\s?HDD', x).group(1)) if re.search(r'(\d+)\s?HDD', x) else 0)
+        flash = df["memory"].apply(lambda x: int(re.search(r'(\d+)\s?Flash Storage', x).group(1)) if re.search(r'(\d+)\s?Flash Storage', x) else 0)
+        
+        df['ssd'] = ssd
+        df['hdd'] = hdd
+        df['flash_storage'] = flash
+        return df
