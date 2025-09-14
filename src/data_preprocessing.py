@@ -66,20 +66,22 @@ class Preprocessor:
         # We keep it simple to just the brand (Intel, Nvidia, AMD).
         # GPU series is complex and is likely to be highly correlated with CPU tier.
         return df
-
+    
     def _process_memory_features(self, df):
-        """Parses the 'memory' column into separate storage types."""
+        """Parses the 'memory' column into separate storage types, including combinations."""
         df['memory'] = df['memory'].astype(str).replace('\.0', '', regex=True)
         df["memory"] = df["memory"].str.replace('GB', '')
         df["memory"] = df["memory"].str.replace('TB', '000')
 
-        ssd = df["memory"].apply(lambda x: int(re.search(r'(\d+)\s?SSD', x).group(1)) if re.search(r'(\d+)\s?SSD', x) else 0)
-        hdd = df["memory"].apply(lambda x: int(re.search(r'(\d+)\s?HDD', x).group(1)) if re.search(r'(\d+)\s?HDD', x) else 0)
-        flash = df["memory"].apply(lambda x: int(re.search(r'(\d+)\s?Flash Storage', x).group(1)) if re.search(r'(\d+)\s?Flash Storage', x) else 0)
+        def extract_storage(mem_str, storage_type):
+            match = re.search(r'(\d+)\s?' + storage_type, mem_str)
+            return int(match.group(1)) if match else 0
+
+        df['ssd'] = df['memory'].apply(lambda x: extract_storage(x, 'SSD'))
+        df['hdd'] = df['memory'].apply(lambda x: extract_storage(x, 'HDD'))
+        df['flash_storage'] = df['memory'].apply(lambda x: extract_storage(x, 'Flash Storage'))
+        df['hybrid'] = df['memory'].apply(lambda x: extract_storage(x, 'Hybrid'))
         
-        df['ssd'] = ssd
-        df['hdd'] = hdd
-        df['flash_storage'] = flash
         return df
     
     def _process_os_features(self, df):
