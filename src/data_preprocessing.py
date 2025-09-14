@@ -119,3 +119,51 @@ class Preprocessor:
              self.fitted_columns.remove(self.target_col)
         
         return self
+    
+    def transform(self, df, is_fitting=False):
+        """Applies all preprocessing and feature engineering steps."""
+        df = df.copy()
+        
+        # Log transforming the target variable using log1p for numerical stability.
+        if self.target_col in df.columns:
+            df[self.target_col] = np.log1p(df[self.target_col])
+
+        df = self._clean_and_extract_base_features(df)
+        df = self._process_screen_features(df)
+        df = self._process_cpu_features(df)
+        df = self._process_gpu_features(df)
+        df = self._process_memory_features(df)
+        df = self._process_os_features(df)
+        
+        cols_to_drop = [
+            'ram', 'weight', 'screenresolution', 'cpu', 'gpu', 
+            'memory', 'opsys', 'x_res', 'y_res'
+        ]
+        df = df.drop(columns=cols_to_drop, errors='ignore')
+        
+        if is_fitting:
+            self.categorical_cols = df.select_dtypes(include=['object']).columns.tolist()
+        
+        df = pd.get_dummies(df, columns=self.categorical_cols, drop_first=True, dtype=float)
+
+        target = df.pop(self.target_col) if self.target_col in df.columns else None
+
+        if not is_fitting:
+            for col in self.fitted_columns:
+                if col not in df.columns:
+                    df[col] = 0
+            df = df[self.fitted_columns]
+        
+        if not is_fitting:
+            df[self.numeric_cols] = (df[self.numeric_cols] - self.scaling_params['means']) / self.scaling_params['stds']
+        
+        if target is not None:
+            df[self.target_col] = target
+
+        return df
+
+    def fit_transform(self, df):
+        """A convenience method to fit and then transform."""
+        self.fit(df)
+        processed_df = self.transform(df, is_fitting=False)
+        return processed_df
