@@ -81,3 +81,41 @@ class Preprocessor:
         df['hdd'] = hdd
         df['flash_storage'] = flash
         return df
+    
+    def _process_os_features(self, df):
+        """Simplifies the 'opsys' column."""
+        def map_os(os_str):
+            if 'Windows' in os_str:
+                return 'Windows'
+            elif 'Mac' in os_str:
+                return 'Mac'
+            elif 'Linux' in os_str:
+                return 'Linux'
+            else:
+                return 'Other/No OS'
+        
+        df['os_category'] = df['opsys'].apply(map_os)
+        return df
+    
+    def fit(self, df):
+        """Learns scaling parameters and column structure from the training data."""
+        # We process the dataframe first to know which columns will exist
+        temp_df = self.transform(df, is_fitting=True)
+        
+        # Identify numeric and categorical columns
+        self.numeric_cols = temp_df.select_dtypes(include=np.number).columns.tolist()
+        if self.target_col in self.numeric_cols:
+            self.numeric_cols.remove(self.target_col)
+            
+        self.categorical_cols = temp_df.select_dtypes(include=['object', 'category']).columns.tolist()
+
+        # Learn scaling parameters
+        self.scaling_params['means'] = temp_df[self.numeric_cols].mean()
+        self.scaling_params['stds'] = temp_df[self.numeric_cols].std()
+        
+        # Store the columns from the fitted data (after one-hot encoding)
+        self.fitted_columns = temp_df.columns.tolist()
+        if self.target_col in self.fitted_columns:
+             self.fitted_columns.remove(self.target_col)
+        
+        return self
